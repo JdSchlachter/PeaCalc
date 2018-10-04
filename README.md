@@ -49,14 +49,15 @@ However, user-input can be specified with three additional formats:
 |  \<NUM\>°  | Treat the angle in degree.                                         
 |            | It will be multiplied by 180/pi prior to processing.               
 
-The output can be converted to hexadecimal by wrapping the expression in a hex-function:
- hex(f) : Calculates the term f, and then converts its output to hex.
+The output can be converted to hexadecimal by wrapping the expression in a hex-function:  
+
+    hex(f) : Calculates the term f, and then converts its output to hex.
 
 ___Note:___  
 _Since the calculator-engine is completely based on the double data-type, there are three restrictions to be considered:_  
 
 * _The greatest value, which can savely be handled is 10^22^._
-* _Any number greater than 253 (=9007199254740991 or approximately 9E15) will be chopped in precision and treated as double._
+* _Any number greater than 2^53^ (=9007199254740991 or approximately 9E15) will be chopped in precision and treated as double._
 * _The maximum precision, is 16 leading digits._
 
 ## Examples
@@ -129,18 +130,24 @@ Since there's no way yet of changing these settings out of the application itsel
 * _Precision_: Defines the precision in digits of the numeric output of float-values. The value ranges from 1 to 16.
 * _Lines_: Defines, how many lines are stored in the history.
 
+## Developer Notes
+This project is can be built with Mingw-w64 or Visual Studio. Some compiler switches were added, to ensure support for both environments.  
+However, the batch-file, which ships with the source-code, relies on MinGw.  
+Note, that the 32-bit version of MinGW caused some trouble, so I decided against using it.  
+The help-html file is created at build-time from the read-me file using Pandoc.
+
 ## License
-Copyright (C) 2018 J.D. Schlachter <osw.schlachter@mailbox.org>
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
+Copyright (C) 2018 J.D. Schlachter <osw.schlachter@mailbox.org>  
+This program is free software: you can redistribute it and/or modify  
+it under the terms of the GNU General Public License as published by  
+the Free Software Foundation, either version 3 of the License, or  
+(at your option) any later version.  
+  
+This program is distributed in the hope that it will be useful,  
+but WITHOUT ANY WARRANTY; without even the implied warranty of  
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the  
+GNU General Public License for more details.  
+  
+You should have received a copy of the GNU General Public License  
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
