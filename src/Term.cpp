@@ -268,6 +268,11 @@ INT32  CTerm::s32ParseOperator(const std::wstring sInput, UINT32* pu32OpType) {
         *pu32OpType = C_TERM_CmdMultiplication;
         return iOpo;
     }
+    iOpo = s32OperatorRevFind(sInput, L"÷");
+    if (iOpo != -1) {
+        *pu32OpType = C_TERM_CmdDivision;
+        return iOpo;
+    }
     iOpo = s32OperatorRevFind(sInput, L"/");
     if (iOpo != -1) {
         *pu32OpType = C_TERM_CmdDivision;

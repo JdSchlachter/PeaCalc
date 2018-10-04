@@ -260,15 +260,22 @@ LRESULT CALLBACK EditBoxProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         if (wParam == 0x007E) {
             /** Mask out the keyboard-specifics:                                      */
             lParam = (lParam & 0xE000007FFF);
-            /** And replace with the unicode for the root-sign:                       */
+            /** And replace with the unicode:                                         */
             wParam = 0x221A;
         }
         /** Check, if it is a colon, which will be replaced by point:                 */
         if (wParam == 0x002C) {
             /** Mask out the keyboard-specifics:                                      */
             lParam = (lParam & 0xE000007FFF);
-            /** And replace with the unicode for the root-sign:                       */
+            /** And replace with the unicode:                                         */
             wParam = 0x002E;
+        }
+        /** Check, if it is a slash, which will be replaced by a division-sign:       */
+        if (wParam == 0x002F) {
+            /** Mask out the keyboard-specifics:                                      */
+            lParam = (lParam & 0xE000007FFF);
+            /** And replace with the unicode:                                         */
+            wParam = 0x00F7;
         }
         break;
     }
