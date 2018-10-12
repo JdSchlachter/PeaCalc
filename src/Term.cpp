@@ -161,7 +161,7 @@ INT32 CTerm::s32ParseOperand(std::wstring sInput) {
         m_u32Operator = C_TERM_CmdConstant;
         return C_TERM_NumOK;
     }
-    if (sInput.back() == L'°') {
+    if (sInput.back() == L'o') {
         sInput = sInput.substr(0, sInput.length() - 1);
         m_dVar = wcstod(sInput.c_str(), &pwszEnd);
         if ((*pwszEnd) != L'\0') return C_TERM_ErroneousNumeric;

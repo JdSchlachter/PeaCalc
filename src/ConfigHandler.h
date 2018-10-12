@@ -51,7 +51,6 @@ public:
     CConfigHandler();
     ~CConfigHandler();
     bool   bIsPortable(void);
-    const WCHAR* pszwGetDefaultText(void);
 private:
     bool  bPortable;
     void  vCheckPortable(void);

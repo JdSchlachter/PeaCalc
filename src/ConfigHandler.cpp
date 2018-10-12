@@ -31,10 +31,6 @@
 #pragma warning(disable : 4996)
 #endif
 
-/** Local Constants: ******************************************************************/
-
-const WCHAR cszwDefaultText[] = TEXT(" *  PeaCalc v1.0.2, Copyright (C) 2018 J.D. Schlachter\r\n *  This program comes with ABSOLUTELY NO WARRANTY.\r\n *  It is free software; you can redistribute it and/or modify it\r\n *  under the terms of the GNU General Public License version 3,\r\n *  or (at your option) any later version; type 'license' for details.\r\n *  Type 'info' for this notification.\r\n *  Type 'help' for the user-manual.\r\n> ");
-
 /** Public Functions: *****************************************************************/
 
 /** Constructor: **********************************************************************
@@ -100,12 +96,6 @@ bool CConfigHandler::bIsPortable(void) {
     return (bPortable);
 }
 
-/** Get-Function for the default-text: ************************************************
- *    This allows the main to fetch it for later display:                             */
-
-const WCHAR* CConfigHandler::pszwGetDefaultText(void){
-    return (cszwDefaultText);
-}
 /** Private Functions: ****************************************************************/
 
 /** Check-function for portability: ***************************************************
@@ -244,5 +234,5 @@ void CConfigHandler::vSetDefaultData(void) {
     iPrecision = CNF_DEF_PRECISION;
     iFontSize  = CNF_DEF_FONTSIZE;
     iLines     = CNF_DEF_LINES;
-    sText = std::wstring(cszwDefaultText);
+    sText[0]   = L'\0';
 }

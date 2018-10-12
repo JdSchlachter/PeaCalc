@@ -19,7 +19,7 @@ PeaCalc currently supports the following basic functions (by priority):
 | a * b      | Multiplication                                                    
 | a / b      | Division                                                          
 | n √ a      | ^n^th root of a. When n is omitted, 2 is considered as base.      
-|            | _Note: Use the tilde-key \~!_                                     
+|            | _Note: Use the back-slash key \\!_                                     
 | a \^ b     | a Power b                                                         
 | n log( b ) | Logarithm of b to n. When n is omitted, e is considered (≈ 2.718).
 
@@ -46,7 +46,7 @@ However, user-input can be specified with three additional formats:
 |------------|---------------------------------------------------------------------
 | 0x\<NUM\>  | Treat the number as hexadecimal input                              
 | 0b\<NUM\>  | Treat the number as binary input                                   
-|  \<NUM\>°  | Treat the angle in degree.                                         
+|  \<NUM\>o  | Treat the angle in degree.                                         
 |            | It will be multiplied by 180/pi prior to processing.               
 
 The output can be converted to hexadecimal by wrapping the expression in a hex-function:  
@@ -80,7 +80,7 @@ Calculate the sine-value at 30°:
 
     sin(30 *pi/180)
     = 0.50000
-    sin(30°)
+    sin(30o)
     = 0.50000
     > |  
 
@@ -116,11 +116,11 @@ Calculating with binary values:
 ## Technical Details
 When PeaCalc is closed, it stores its position and a couple other things - including the current window's text - in an initialization file. This file is placed in one of two locations:
 
-* When at start-up of PeaCalc a PeaCalc.ini file is found in its application-directory, or the drive it is run from is removable, than the settings are stored right there.
-* When both of these are not the case, PeaCalc places this file in %APPDATA%\PeaCalc.
-  In windows 10, these expands to something like C:\Users\<user-name>\AppData\Roaming\PeaCalc.
-  This split up is done to enable both a local installation and an installation on a portable USB drive.
-
+* When at start-up of PeaCalc a _PeaCalc.ini_ file is found in its application-directory, or the drive it is run from is removable, than the settings are stored right there.
+* When both of these are not the case, PeaCalc places this file in %APPDATA%\\PeaCalc.  
+  In windows 10, this expands to something like _C:\\Users\\\<user-name>\\AppData\\Roaming\\PeaCalc_.  
+  
+This split up is done to enable both a local installation and an installation on a portable USB drive.  
 Since there's no way yet of changing these settings out of the application itself, there's at least the possibility to customize PeaCalc via these files. They contain the following settings:
 
 * _Top_, _Left_, _Height_ and _Width_: This is simply the location of the window at shut-down. It is stored to help a user find it, when it is started the next time.
@@ -138,6 +138,7 @@ The help-html file is created at build-time from the read-me file using Pandoc.
 
 ## License
 Copyright (C) 2018 J.D. Schlachter <osw.schlachter@mailbox.org>  
+  
 This program is free software: you can redistribute it and/or modify  
 it under the terms of the GNU General Public License as published by  
 the Free Software Foundation, either version 3 of the License, or  

@@ -1,13 +1,16 @@
 @echo off
-echo.
-echo. Building with MinGw ....
-echo.
-echo. Expecting MinGw in C:\Tools\mingw64\bin!
-echo.
 
 rem * Prepare the environment:
-set PATH=C:\Tools\mingw64\bin\;%PATH%
+set MINGWPATH=C:\Tools\mingw64\bin
+set PATH=%MINGWPATH%\;%PATH%
 mkdir  ..\build
+
+rem * Give out user-information:
+echo.
+echo. Building with MinGw
+echo.
+echo. Expecting MinGw in %MINGWPATH%...
+echo.
 
 rem * Build manual:
 del ..\build\PeaCalc.html
@@ -24,6 +27,8 @@ copy    .\PeaCalc.ini ..\build /Y
 copy   ..\LICENSE     ..\build\LICENSE.txt /Y
 
 rem * ... and build:
-g++ -Wall -o ..\build\PeaCalc.exe -mwindows -static -static-libgcc -static-libstdc++ PeaCalc.cpp ConfigHandler.cpp CommandHandler.cpp Term.cpp
+windres PeaCalc.rc -O coff -o PeaCalc.res
+g++ -O3 -s -o ..\build\PeaCalc.exe -mwindows -static-libgcc -static-libstdc++ PeaCalc.cpp ConfigHandler.cpp CommandHandler.cpp Term.cpp PeaCalc.res -lversion
+del *.res
 
 pause
