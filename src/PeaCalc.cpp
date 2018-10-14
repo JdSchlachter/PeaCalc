@@ -38,7 +38,7 @@
 #pragma warning(disable : 4100)
 #pragma warning(disable : 4996)
 #else
-#pragma comment(lib,"version.lib")
+#pragma GCC diagnostic ignored "-Wconversion-null"
 #endif
 
 /** Local Defines: ********************************************************************/
@@ -338,6 +338,7 @@ void EditProcEnter(HWND hwnd) {
         /** Clear - Clear the text-box text:                                          */
         wcscpy(buffer, L"> ");
     } else if (wcscmp(pszwStart, L"info") == 0) {
+        /** Info - Add the info-text:                                                 */ 
         AddInfoText(buffer);
     }else{
         /** Run the command-class and attach its output...                            */
