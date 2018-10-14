@@ -337,9 +337,13 @@ void EditProcEnter(HWND hwnd) {
     }else if (wcscmp(pszwStart, L"clear") == 0) {
         /** Clear - Clear the text-box text:                                          */
         wcscpy(buffer, L"> ");
-    } else if (wcscmp(pszwStart, L"info") == 0) {
+    }else if (wcscmp(pszwStart, L"info") == 0) {
         /** Info - Add the info-text:                                                 */ 
         AddInfoText(buffer);
+    }else if (wcscmp(pszwStart, L"min") == 0) {
+        /** Min - Send a minimize-message to the main window:                         */
+        wcscat(buffer, L"> ");
+        SendMessage(hWndMain, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }else{
         /** Run the command-class and attach its output...                            */
         /** ... this is, where the math begins:                                       */
