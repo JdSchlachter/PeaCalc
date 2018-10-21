@@ -24,14 +24,22 @@
 
 class CCommandHandler {
 public:
+    DWORD           m_dwEditLastLF;
     CCommandHandler(CConfigHandler* Config);
     ~CCommandHandler();
-    std::wstring sRun(std::wstring sInput);
+    void           vSetInfoText(WCHAR* pszwTextPtr);
+    void           vSetText(HWND hEditBox, const WCHAR* pszwNewText);
+    void           vProcEnter(HWND hMain, HWND hEditBox);
 private:
     CTerm           m_TermMain;
     CConfigHandler* m_pConfig;
+    WCHAR*          m_pszwInfoText;
+    std::wstring    sRun(std::wstring sInput);
     bool            isInteger(double dInput);
     std::wstring    sOutputHexInt(double dInput);
     std::wstring    sOutputInt(double dInput);
     std::wstring    sOutputFloat(double dInput);
+    DWORD           dwFindNthLastCR(const WCHAR* pszwInput, int iCount);
+    void            vRollback(WCHAR* pszwInput, WCHAR* pszwNewStart);
+
 };

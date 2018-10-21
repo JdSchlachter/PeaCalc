@@ -22,7 +22,6 @@
 #include <winuser.h>
 #include <stdio.h>
 #include <string>
-#include <shellapi.h>
 #include "resource.h"
 #include "ConfigHandler.h"
 #include "Term.h"
@@ -51,9 +50,9 @@
 HWND            hWndMain;
 HWND            hwndEdit;
 WCHAR           szAppName[]    = TEXT("PeaCalc Portable");
-const WCHAR     cszwInfoText[] = TEXT(" *  This program comes with ABSOLUTELY NO WARRANTY.\r\n *  It is free software; you can redistribute it and/or modify it\r\n *  under the terms of the GNU General Public License version 3,\r\n *  or (at your option) any later version; type 'license' for details.\r\n *  Type 'info' for this notification.\r\n *  Type 'help' for the user-manual.\r\n> ");
+const WCHAR     cszwHelpText[] = TEXT("  * This program comes with ABSOLUTELY NO WARRANTY.\r\n  * It is free software; you can redistribute it and/or modify it\r\n  * under the terms of the GNU General Public License version 3,\r\n  * or (at your option) any later version; type 'license' for details.\r\n  * Type 'info' for this notification.\r\n  * Type 'help' for the user-manual.\r\n> ");
+WCHAR           pszwInfoText[C_TEXTBUFSIZE];
 WNDPROC         lpfnEditBoxLowProc;
-DWORD           dwEditLastLF;
 CConfigHandler  Config;
 CCommandHandler Command(&Config);
 
@@ -61,11 +60,8 @@ CCommandHandler Command(&Config);
 
 LRESULT CALLBACK WndProc        (HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK EditBoxProc    (HWND, UINT, WPARAM, LPARAM);
-void             EditProcEnter  (HWND hwnd);
-void             AddInfoText    (WCHAR* pszwOutput);
-void             AddVersionInfo (WCHAR* pszwOutput, const WCHAR* pszwEntry);
-DWORD            dwFindNthLastCR(const WCHAR* pszwInput, int iCount);
-void             vRollback      (WCHAR* pszwInput, WCHAR* pszwNewStart);
+void vCreateInfoText(WCHAR* pszwOutput);
+void vAddVersionInfo (WCHAR* pszwOutput, const WCHAR* pszwEntry);
 
 /** Application entry function: *******************************************************/
 
@@ -73,8 +69,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
     /** Variables:                                                                    */
     MSG msg;
     WNDCLASSEX wndclass;
-    /** Create and initialize configuration:                                          */
+    /** Change the application-title if portable:                                     */
     if (!Config.bIsPortable()) szAppName[7] = 0;
+    /** Create the info-text and make it available to the command-handler:            */
+    vCreateInfoText(pszwInfoText);
+    Command.vSetInfoText(pszwInfoText);
     /** Prepare Window-Class:                                                         */
 	wndclass.cbSize        = sizeof(WNDCLASSEX);
     wndclass.style = CS_HREDRAW | CS_VREDRAW;
@@ -117,8 +116,6 @@ HWND CreateEditBox(HWND hOwner, WPARAM wParam, LPARAM lParam) {
     /** Variables:                                                                    */
     HWND   hwndEdit;
     HFONT  hFont;
-    DWORD  dwIndex;
-    TCHAR  buffer[C_TEXTBUFSIZE];
     /** Create the edit-box-control:                                                  */
     hwndEdit = CreateWindow(TEXT("edit"), NULL,
         WS_CHILD | WS_VISIBLE | ES_LEFT | ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
@@ -142,18 +139,7 @@ HWND CreateEditBox(HWND hOwner, WPARAM wParam, LPARAM lParam) {
         (WPARAM)hFont,                // handle of the font
         MAKELPARAM(TRUE, 0));
     /** Set the initial text:                                                         */
-    if (Config.sText[0] != L'\0') {
-        wcscpy(buffer, Config.sText.c_str());
-    }else{
-        buffer[0] = L'\0';
-        AddInfoText(buffer);
-    }
-    SetWindowText(hwndEdit, buffer);
-    /** Store the new starting-location:                                              */
-    dwEditLastLF = dwFindNthLastCR(Config.sText.c_str(), 1);
-    /** Set the selection at its end:                                                 */
-    dwIndex = wcslen(buffer);
-    SendMessage(hwndEdit, EM_SETSEL, dwIndex, dwIndex);
+    Command.vSetText(hwndEdit, Config.sText.c_str());
     /** And be done:                                                                  */
     return hwndEdit;
 }
@@ -244,7 +230,7 @@ LRESULT CALLBACK EditBoxProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         if (wParam == VK_DELETE) {
             /** Check if it has to be ignored:                                        */
             SendMessage(hwnd, EM_GETSEL, (WPARAM)&dwIndex, NULL);
-            if (dwIndex < (dwEditLastLF + 3)) return 0;
+            if (dwIndex < (Command.m_dwEditLastLF + 3)) return 0;
         }
         break;
     case WM_CHAR:
@@ -252,19 +238,19 @@ LRESULT CALLBACK EditBoxProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
         if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 3)) break;
         /** If it was a return, process it:                                           */
         if (wParam == VK_RETURN) {
-            EditProcEnter(hwnd);
+            Command.vProcEnter(hWndMain, hwnd);
             return 0;
         }
         /** Fetch the input-position:                                                 */
         SendMessage(hwnd, EM_GETSEL, (WPARAM)&dwIndex, NULL);
         /** Check, if it is a BS to be ignored:                                       */
-        if ((dwIndex < (dwEditLastLF + 4)) && (wParam == L'\b')) {
+        if ((dwIndex < (Command.m_dwEditLastLF + 4)) && (wParam == L'\b')) {
             return 0;
         }
         /** Check, if something was entered before the allowed start-position:        */
-        if (dwIndex < (dwEditLastLF + 3)) {
-            if (dwIndex > dwEditLastLF) {
-                dwIndex = dwEditLastLF + 3;
+        if (dwIndex < (Command.m_dwEditLastLF + 3)) {
+            if (dwIndex > Command.m_dwEditLastLF) {
+                dwIndex = Command.m_dwEditLastLF + 3;
             }else{
                 dwIndex = GetWindowTextLength(hwnd);
             }
@@ -297,89 +283,18 @@ LRESULT CALLBACK EditBoxProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
     return CallWindowProc(lpfnEditBoxLowProc, hwnd, message, wParam, lParam);
 }
 
-/** Event-Handler to process an enter: ************************************************/
-
-void EditProcEnter(HWND hwnd) {
-    TCHAR        buffer[C_TEXTBUFSIZE];
-    DWORD        dwIndex;
-    DWORD        dwStartPos;
-    WCHAR*       pszwStart;
-    /** Get the window-text:                                                          */
-    GetWindowText(hwnd, buffer, sizeof(buffer));
-    dwIndex = wcslen(buffer);
-    /** Check, if there's enough to be processed:                                     */
-    if (dwIndex < (dwEditLastLF + 4)) return;
-    /** Fetch the last CR.                                                            */
-    /** Note, that this masks the end of the second to last line!                     */
-    dwStartPos = dwFindNthLastCR(buffer, 1);
-    /** When this is not the beginning of the string, move behind the CR:             */
-    if (dwStartPos > 0) dwStartPos++;
-    /** Check, if there's enough input:                                               */
-    if (wcslen(buffer) < dwStartPos + 2) return;
-    /** Cut out the last line as argument and the part before as history:             */
-    pszwStart = &buffer[dwStartPos + 2];
-    buffer[dwStartPos] = 0;
-    /** Parse a command, if there is one:                                             */
-    if (wcscmp(pszwStart, L"exit") == 0) {
-        /** Exit - Send a destroy-message to the main window:                         */
-        wcscat(buffer, L"> ");
-        SetWindowText(hwnd, buffer);
-        SendMessage(hWndMain, WM_DESTROY, 0, 0);
-        return;
-    }else if (wcscmp(pszwStart, L"help") == 0) {
-        /** Help - Externally open the manual:                                        */
-        wcscat(buffer, L"> ");
-        ShellExecute(NULL, L"open", L"PeaCalc.html", NULL, NULL , SW_SHOW );
-    }else if (wcscmp(pszwStart, L"license") == 0) {
-        /** License - Externally open the GPL:                                        */
-        wcscat(buffer, L"> ");
-        ShellExecute(NULL, L"open", L"LICENSE.txt", NULL, NULL , SW_SHOW );
-    }else if (wcscmp(pszwStart, L"clear") == 0) {
-        /** Clear - Clear the text-box text:                                          */
-        wcscpy(buffer, L"> ");
-    }else if (wcscmp(pszwStart, L"info") == 0) {
-        /** Info - Add the info-text:                                                 */ 
-        AddInfoText(buffer);
-    }else if (wcscmp(pszwStart, L"min") == 0) {
-        /** Min - Send a minimize-message to the main window:                         */
-        wcscat(buffer, L"> ");
-        SendMessage(hWndMain, WM_SYSCOMMAND, SC_MINIMIZE, 0);
-    }else{
-        /** Run the command-class and attach its output...                            */
-        /** ... this is, where the math begins:                                       */
-        wcscat(buffer, Command.sRun(std::wstring(pszwStart)).c_str());
-    }
-    /** Check, if the text has to be clipped:                                         */
-    dwIndex = dwFindNthLastCR(buffer, Config.iLines);
-    if (dwIndex>0) {
-        vRollback (buffer, &buffer[dwIndex+1]);
-    }
-    SetWindowText(hwnd, buffer);
-    /** Store the new starting-location:                                              */
-    dwEditLastLF = dwFindNthLastCR(buffer, 1);
-    /**  Set the selection after the last character:                                  */
-    dwIndex = wcslen(buffer);
-    SendMessage(hwnd, EM_SETSEL, dwIndex, dwIndex);
-    /** And trigger a scroll:                                                         */
-    SendMessage(hwnd, EM_SCROLLCARET, 0, 0);
-}
-
-/** Small helper to built the info-text including the version-info: *******************/
-
-void AddInfoText(WCHAR* pszwOutput) {
-    wcscat(pszwOutput, L" *  ");
-    AddVersionInfo(pszwOutput, L"InternalName");
+void vCreateInfoText(WCHAR* pszwOutput) {
+    wcscpy(pszwOutput, L"  * ");
+    vAddVersionInfo(pszwOutput, L"InternalName");
     wcscat(pszwOutput, L" ");
-    AddVersionInfo(pszwOutput, L"FileVersion");
+    vAddVersionInfo(pszwOutput, L"FileVersion");
     wcscat(pszwOutput, L", ");
-    AddVersionInfo(pszwOutput, L"LegalCopyright");
+    vAddVersionInfo(pszwOutput, L"LegalCopyright");
     wcscat(pszwOutput, L"\r\n");
-    wcscat(pszwOutput, cszwInfoText);
+    wcscat(pszwOutput, cszwHelpText);
 }
 
-/** API wrapper, to read values from the resource's version-info: *********************/
-
-void AddVersionInfo(WCHAR* pszwOutput, const WCHAR* pszwEntry) {
+void vAddVersionInfo(WCHAR* pszwOutput, const WCHAR* pszwEntry) {
     /** Variables:                                                                    */
     DWORD   vLen, langD;
     BOOL    retVal;
@@ -396,17 +311,18 @@ void AddVersionInfo(WCHAR* pszwOutput, const WCHAR* pszwEntry) {
                 retVal = VerQueryValue(versionInfo, fileEntry, &retbuf, (UINT *)&vLen);
                 if (retVal && vLen == 4) {
                     memcpy(&langD, retbuf, 4);
-                    #ifdef _MSC_VER
+#ifdef _MSC_VER
                     swprintf(fileEntry, L"\\StringFileInfo\\%02X%02X%02X%02X\\%s",
                         (langD & 0xff00) >> 8, langD & 0xff, (langD & 0xff000000) >> 24,
                         (langD & 0xff0000) >> 16, pszwEntry);
-                    #else
+#else
                     swprintf(fileEntry, L"\\StringFileInfo\\%02X%02X%02X%02X\\%S",
                         (langD & 0xff00) >> 8, langD & 0xff, (langD & 0xff000000) >> 24,
                         (langD & 0xff0000) >> 16, pszwEntry);
-                    #endif
-                        
-                }else{
+#endif
+
+                }
+                else {
                     swprintf(fileEntry, L"\\StringFileInfo\\%04X04B0\\%s",
                         GetUserDefaultLangID(), pszwEntry);
                 }
@@ -418,24 +334,4 @@ void AddVersionInfo(WCHAR* pszwOutput, const WCHAR* pszwEntry) {
         UnlockResource(hGlobal);
         FreeResource(hGlobal);
     }
-}
-
-/** Small support-functions: **********************************************************/
-
-DWORD dwFindNthLastCR(const WCHAR* pszwInput, int iCount) {
-    DWORD dwPos = wcslen(pszwInput);
-    while ((dwPos > 0) && (iCount>0)) {
-        dwPos --;
-        if (pszwInput[dwPos] == L'\n') iCount--;
-    }
-    return dwPos;
-}
-
-void vRollback(WCHAR* pszwInput, WCHAR* pszwNewStart) {
-    while (*pszwNewStart != L'\0') {
-        *pszwInput = *pszwNewStart;
-        pszwInput ++;
-        pszwNewStart ++;
-    }
-    *pszwInput = L'\0';
 }

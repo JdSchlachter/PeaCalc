@@ -20,6 +20,7 @@
 
 #include "stdafx.h"
 #include <winuser.h>
+#include <shellapi.h>
 #include <stdio.h>
 #include <string>
 #include <algorithm>
@@ -46,6 +47,99 @@ CCommandHandler::CCommandHandler(CConfigHandler* Config) {
 
 CCommandHandler::~CCommandHandler() {
 }
+
+void CCommandHandler::vSetInfoText(WCHAR* pszwTextPtr) {
+    this->m_pszwInfoText = pszwTextPtr;
+}
+
+void CCommandHandler::vSetText(HWND hEditBox, const WCHAR* pszwNewText) {
+    TCHAR  buffer[C_TEXTBUFSIZE];
+    DWORD  dwIndex;
+    if (pszwNewText[0] != L'\0') {
+        wcscpy(buffer, pszwNewText);
+    } else {
+        wcscpy(buffer, m_pszwInfoText);
+    }
+    SetWindowText(hEditBox, buffer);
+    /** Store the new starting-location:                                              */
+    m_dwEditLastLF = dwFindNthLastCR(buffer, 1);
+    /** Set the selection at its end:                                                 */
+    dwIndex = wcslen(buffer);
+    SendMessage(hEditBox, EM_SETSEL, dwIndex, dwIndex);
+}
+
+void CCommandHandler::vProcEnter(HWND hMain, HWND hEditBox) {
+    TCHAR        buffer[C_TEXTBUFSIZE];
+    DWORD        dwIndex;
+    DWORD        dwStartPos;
+    WCHAR*       pszwStart;
+    /** Get the window-text:                                                          */
+    GetWindowText(hEditBox, buffer, sizeof(buffer));
+    dwIndex = wcslen(buffer);
+    /** Check, if there's enough to be processed:                                     */
+    if (dwIndex < (m_dwEditLastLF + 4)) return;
+    /** Fetch the last CR.                                                            */
+    /** Note, that this masks the end of the second to last line!                     */
+    dwStartPos = dwFindNthLastCR(buffer, 1);
+    /** When this is not the beginning of the string, move behind the CR:             */
+    if (dwStartPos > 0) dwStartPos++;
+    /** Check, if there's enough input:                                               */
+    if (wcslen(buffer) < dwStartPos + 2) return;
+    /** Cut out the last line as argument and the part before as history:             */
+    pszwStart = &buffer[dwStartPos + 2];
+    buffer[dwStartPos] = 0;
+    /** Parse a command, if there is one:                                             */
+    if (wcscmp(pszwStart, L"exit") == 0) {
+        /** Exit - Send a destroy-message to the main window:                         */
+        wcscat(buffer, L"> ");
+        SetWindowText(hEditBox, buffer);
+        SendMessage(hMain, WM_DESTROY, 0, 0);
+        return;
+    }
+    else if (wcscmp(pszwStart, L"help") == 0) {
+        /** Help - Externally open the manual:                                        */
+        wcscat(buffer, L"> ");
+        ShellExecute(NULL, L"open", L"PeaCalc.html", NULL, NULL, SW_SHOW);
+    }
+    else if (wcscmp(pszwStart, L"license") == 0) {
+        /** License - Externally open the GPL:                                        */
+        wcscat(buffer, L"> ");
+        ShellExecute(NULL, L"open", L"LICENSE.txt", NULL, NULL, SW_SHOW);
+    }
+    else if (wcscmp(pszwStart, L"clear") == 0) {
+        /** Clear - Clear the text-box text:                                          */
+        wcscpy(buffer, L"> ");
+    }
+    else if (wcscmp(pszwStart, L"info") == 0) {
+        /** Info - Add the info-text:                                                 */
+        wcscat(buffer, L"  info\r\n");
+        wcscat(buffer, m_pszwInfoText);
+    }
+    else if (wcscmp(pszwStart, L"min") == 0) {
+        /** Min - Send a minimize-message to the main window:                         */
+        wcscat(buffer, L"> ");
+        SendMessage(hMain, WM_SYSCOMMAND, SC_MINIMIZE, 0);
+    }
+    else {
+        /** Run the command-class and attach its output...                            */
+        /** ... this is, where the math begins:                                       */
+        wcscat(buffer, sRun(std::wstring(pszwStart)).c_str());
+    }
+    /** Check, if the text has to be clipped:                                         */
+    dwIndex = dwFindNthLastCR(buffer, m_pConfig->iLines);
+    if (dwIndex>0) {
+        vRollback(buffer, &buffer[dwIndex + 1]);
+    }
+    SetWindowText(hEditBox, buffer);
+    /** Store the new starting-location:                                              */
+    m_dwEditLastLF = dwFindNthLastCR(buffer, 1);
+    /**  Set the selection after the last character:                                  */
+    dwIndex = wcslen(buffer);
+    SendMessage(hEditBox, EM_SETSEL, dwIndex, dwIndex);
+    /** And trigger a scroll:                                                         */
+    SendMessage(hEditBox, EM_SCROLLCARET, 0, 0);
+}
+
 
 std::wstring CCommandHandler::sRun(std::wstring sInput) {
     /** Variables:                                                                    */
@@ -137,3 +231,28 @@ std::wstring CCommandHandler::sOutputFloat(double dInput) {
     swprintf(szwNumBuf, szwFormat, dInput);
     return std::wstring(szwNumBuf);
 }
+
+
+/** API wrapper, to read values from the resource's version-info: *********************/
+
+
+/** Small support-functions: **********************************************************/
+
+DWORD CCommandHandler::dwFindNthLastCR(const WCHAR* pszwInput, int iCount) {
+    DWORD dwPos = wcslen(pszwInput);
+    while ((dwPos > 0) && (iCount>0)) {
+        dwPos--;
+        if (pszwInput[dwPos] == L'\n') iCount--;
+    }
+    return dwPos;
+}
+
+void CCommandHandler::vRollback(WCHAR* pszwInput, WCHAR* pszwNewStart) {
+    while (*pszwNewStart != L'\0') {
+        *pszwInput = *pszwNewStart;
+        pszwInput++;
+        pszwNewStart++;
+    }
+    *pszwInput = L'\0';
+}
+
