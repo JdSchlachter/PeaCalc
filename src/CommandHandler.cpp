@@ -19,9 +19,7 @@
 /** Global Includes: ******************************************************************/
 
 #include "stdafx.h"
-#include <winuser.h>
 #include <shellapi.h>
-#include <stdio.h>
 #include <string>
 #include <algorithm>
 #include <math.h>
@@ -48,9 +46,13 @@ CCommandHandler::CCommandHandler(CConfigHandler* Config) {
 CCommandHandler::~CCommandHandler() {
 }
 
+/** Tiny function to store a pointer to the info-text: ********************************/
+
 void CCommandHandler::vSetInfoText(WCHAR* pszwTextPtr) {
     this->m_pszwInfoText = pszwTextPtr;
 }
+
+/** Set-function, which adds the info-text if there's empty input: ********************/
 
 void CCommandHandler::vSetText(HWND hEditBox, const WCHAR* pszwNewText) {
     TCHAR  buffer[C_TEXTBUFSIZE];
@@ -67,6 +69,8 @@ void CCommandHandler::vSetText(HWND hEditBox, const WCHAR* pszwNewText) {
     dwIndex = wcslen(buffer);
     SendMessage(hEditBox, EM_SETSEL, dwIndex, dwIndex);
 }
+
+/** Handler for a command to be executed: *********************************************/
 
 void CCommandHandler::vProcEnter(HWND hMain, HWND hEditBox) {
     TCHAR        buffer[C_TEXTBUFSIZE];
@@ -101,29 +105,28 @@ void CCommandHandler::vProcEnter(HWND hMain, HWND hEditBox) {
         wcscat(buffer, L"> ");
         ShellExecute(NULL, L"open", L"PeaCalc.html", NULL, NULL, SW_SHOW);
     }
-    else if (wcscmp(pszwStart, L"license") == 0) {
+    else if (wcsncmp(pszwStart, L"license", 7) == 0) {
         /** License - Externally open the GPL:                                        */
         wcscat(buffer, L"> ");
         ShellExecute(NULL, L"open", L"LICENSE.txt", NULL, NULL, SW_SHOW);
     }
-    else if (wcscmp(pszwStart, L"clear") == 0) {
+    else if (wcsncmp(pszwStart, L"clear", 5) == 0) {
         /** Clear - Clear the text-box text:                                          */
         wcscpy(buffer, L"> ");
     }
-    else if (wcscmp(pszwStart, L"info") == 0) {
+    else if (wcsncmp(pszwStart, L"info", 4) == 0) {
         /** Info - Add the info-text:                                                 */
         wcscat(buffer, L"  info\r\n");
         wcscat(buffer, m_pszwInfoText);
     }
-    else if (wcscmp(pszwStart, L"min") == 0) {
+    else if (wcsncmp(pszwStart, L"min", 3) == 0) {
         /** Min - Send a minimize-message to the main window:                         */
         wcscat(buffer, L"> ");
         SendMessage(hMain, WM_SYSCOMMAND, SC_MINIMIZE, 0);
     }
     else {
-        /** Run the command-class and attach its output...                            */
-        /** ... this is, where the math begins:                                       */
-        wcscat(buffer, sRun(std::wstring(pszwStart)).c_str());
+        /** Run the mathematical handler and attach its output:                       */
+        wcscat(buffer, vProcMath(std::wstring(pszwStart)).c_str());
     }
     /** Check, if the text has to be clipped:                                         */
     dwIndex = dwFindNthLastCR(buffer, m_pConfig->iLines);
@@ -140,8 +143,9 @@ void CCommandHandler::vProcEnter(HWND hMain, HWND hEditBox) {
     SendMessage(hEditBox, EM_SCROLLCARET, 0, 0);
 }
 
+/** Handler for a mathematical input: *************************************************/
 
-std::wstring CCommandHandler::sRun(std::wstring sInput) {
+std::wstring CCommandHandler::vProcMath(std::wstring sInput) {
     /** Variables:                                                                    */
     std::wstring sOutput;
     bool         bOutputHex = false;
@@ -183,13 +187,18 @@ std::wstring CCommandHandler::sRun(std::wstring sInput) {
     return sOutput;
 }
 
-bool CCommandHandler::isInteger(double dInput) {
-  double fractpart, intpart;
-  fractpart = modf (dInput , &intpart);
-  if (fractpart>0) return false;
-  return true;
+/** Small support-function to scan for CRs: *******************************************/
 
+DWORD CCommandHandler::dwFindNthLastCR(const WCHAR* pszwInput, int iCount) {
+    DWORD dwPos = wcslen(pszwInput);
+    while ((dwPos > 0) && (iCount>0)) {
+        dwPos--;
+        if (pszwInput[dwPos] == L'\n') iCount--;
+    }
+    return dwPos;
 }
+
+/** Formats an output as hex-int: *****************************************************/
 
 std::wstring CCommandHandler::sOutputHexInt(double dInput) {
     WCHAR szwNumBuf[40];
@@ -198,12 +207,16 @@ std::wstring CCommandHandler::sOutputHexInt(double dInput) {
     return std::wstring(szwNumBuf);
 }
 
+/** Formats an output as decimal int: *************************************************/
+
 std::wstring CCommandHandler::sOutputInt(double dInput) {
     WCHAR szwNumBuf[40];
     INT64 s64Temp = (INT64)dInput;
     swprintf(szwNumBuf, L"%I64i", s64Temp);
     return std::wstring(szwNumBuf);
 }
+
+/** Formats an output as floating-point value: ****************************************/
 
 std::wstring CCommandHandler::sOutputFloat(double dInput) {
     WCHAR  szwNumBuf[40];
@@ -212,7 +225,7 @@ std::wstring CCommandHandler::sOutputFloat(double dInput) {
     int    iIntDigits = 1;
     int    iDecimals  = m_pConfig->iPrecision;
     /** Check, if the input is in the range for fixed-point:                          */
-    if ((abs(dInput) < 100000) && (abs(dInput) > 0.1)) {
+    if ((abs(dInput) < 1000000) && (abs(dInput) > 0.09)) {
         /** It is, so get the number of integer-digits:                               */
         iIntDigits = 1;
         while (abs(dTemp) > 1) {
@@ -232,19 +245,14 @@ std::wstring CCommandHandler::sOutputFloat(double dInput) {
     return std::wstring(szwNumBuf);
 }
 
-
-/** API wrapper, to read values from the resource's version-info: *********************/
-
-
 /** Small support-functions: **********************************************************/
 
-DWORD CCommandHandler::dwFindNthLastCR(const WCHAR* pszwInput, int iCount) {
-    DWORD dwPos = wcslen(pszwInput);
-    while ((dwPos > 0) && (iCount>0)) {
-        dwPos--;
-        if (pszwInput[dwPos] == L'\n') iCount--;
-    }
-    return dwPos;
+bool CCommandHandler::isInteger(double dInput) {
+  double fractpart, intpart;
+  fractpart = modf (dInput , &intpart);
+  if (fractpart>0) return false;
+  return true;
+
 }
 
 void CCommandHandler::vRollback(WCHAR* pszwInput, WCHAR* pszwNewStart) {

@@ -19,8 +19,6 @@
 /** Global Includes: ******************************************************************/
 
 #include "stdafx.h"
-#include <winuser.h>
-#include <stdio.h>
 #include <string>
 #include "resource.h"
 #include "ConfigHandler.h"
@@ -48,7 +46,7 @@
 /** Global variables: *****************************************************************/
 
 HWND            hWndMain;
-HWND            hwndEdit;
+HWND            hWndEdit;
 WCHAR           szAppName[]    = TEXT("PeaCalc Portable");
 const WCHAR     cszwHelpText[] = TEXT("  * This program comes with ABSOLUTELY NO WARRANTY.\r\n  * It is free software; you can redistribute it and/or modify it\r\n  * under the terms of the GNU General Public License version 3,\r\n  * or (at your option) any later version; type 'license' for details.\r\n  * Type 'info' for this notification.\r\n  * Type 'help' for the user-manual.\r\n> ");
 WCHAR           pszwInfoText[C_TEXTBUFSIZE];
@@ -60,7 +58,8 @@ CCommandHandler Command(&Config);
 
 LRESULT CALLBACK WndProc        (HWND, UINT, WPARAM, LPARAM);
 LRESULT CALLBACK EditBoxProc    (HWND, UINT, WPARAM, LPARAM);
-void vCreateInfoText(WCHAR* pszwOutput);
+void vDoTabScan(bool bDir, bool bReScan);
+void vCreateInfoText (WCHAR* pszwOutput);
 void vAddVersionInfo (WCHAR* pszwOutput, const WCHAR* pszwEntry);
 
 /** Application entry function: *******************************************************/
@@ -114,15 +113,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
 HWND CreateEditBox(HWND hOwner, WPARAM wParam, LPARAM lParam) {
     /** Variables:                                                                    */
-    HWND   hwndEdit;
+    HWND   hWndEdit;
     HFONT  hFont;
     /** Create the edit-box-control:                                                  */
-    hwndEdit = CreateWindow(TEXT("edit"), NULL,
+    hWndEdit = CreateWindow(TEXT("edit"), NULL,
         WS_CHILD | WS_VISIBLE | ES_LEFT | ES_MULTILINE | ES_AUTOHSCROLL | ES_AUTOVSCROLL,
         0, 0, 0, 0, hOwner, (HMENU)ID_EDIT,
         ((LPCREATESTRUCT)lParam)->hInstance, NULL);
     /** Overwrite its message-procedure and conserve the low-level one:               */
-    lpfnEditBoxLowProc = (WNDPROC)SetWindowLongPtr(hwndEdit,GWLP_WNDPROC,(LONG_PTR)EditBoxProc );
+    lpfnEditBoxLowProc = (WNDPROC)SetWindowLongPtr(hWndEdit,GWLP_WNDPROC,(LONG_PTR)EditBoxProc );
     /** Set the font of the edit-box:                                                 */
     hFont = CreateFont(Config.iFontSize, 0, 0, 0,
         FW_DONTCARE,                  // nWeight
@@ -134,15 +133,17 @@ HWND CreateEditBox(HWND hOwner, WPARAM wParam, LPARAM lParam) {
         CLIP_DEFAULT_PRECIS,          // nClipPrecision
         PROOF_QUALITY,                // nQuality
         VARIABLE_PITCH, TEXT("Consolas"));
-    SendMessage(hwndEdit,             // Handle of edit control
+    SendMessage(hWndEdit,             // Handle of edit control
         WM_SETFONT,                   // Message to change the font
         (WPARAM)hFont,                // handle of the font
         MAKELPARAM(TRUE, 0));
     /** Set the initial text:                                                         */
-    Command.vSetText(hwndEdit, Config.sText.c_str());
+    Command.vSetText(hWndEdit, Config.sText.c_str());
     /** And be done:                                                                  */
-    return hwndEdit;
+    return hWndEdit;
 }
+
+/** Encapsulated close-command for the window: ****************************************/
 
 void CloseMain(HWND hwnd, WPARAM wParam, LPARAM lParam) {
     /** Variables:                                                                    */
@@ -154,8 +155,8 @@ void CloseMain(HWND hwnd, WPARAM wParam, LPARAM lParam) {
     Config.iLeft   = rcWind.left;
     Config.iHeight = (rcWind.bottom - rcWind.top);
     Config.iWidth  = (rcWind.right - rcWind.left);
-    /** Get the edit-textz and store it:                                              */
-    GetWindowText(hwndEdit, buffer, sizeof(buffer));
+    /** Get the edit-text and store it:                                               */
+    GetWindowText(hWndEdit, buffer, sizeof(buffer));
     Config.sText   = std::wstring(buffer);
     /** And send a quit message to the application:                                   */
     PostQuitMessage(0);
@@ -173,7 +174,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
         /** Prepare window for opacity:                                               */
         SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_LAYERED);
         /** Create Edit-Box:                                                          */
-        hwndEdit = CreateEditBox(hwnd, wParam, lParam);
+        hWndEdit = CreateEditBox(hwnd, wParam, lParam);
         break;
     case WM_GETMINMAXINFO:
         /** Get the rectangles of window and client to calc the border-width:         */
@@ -185,12 +186,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
         break;
     case WM_SETFOCUS:
         /** When the window received the focus, pass it on to the edit-control:       */
-        SetFocus(hwndEdit);
+        SetFocus(hWndEdit);
         return 0;
     case WM_SIZE:
         /** When the window is resized, do so with the edit-control:                  */
-        MoveWindow(hwndEdit, 0, 0, LOWORD(lParam), HIWORD(lParam), TRUE);
-        SendMessage(hwndEdit, EM_SCROLLCARET, 0, 0);
+        MoveWindow(hWndEdit, 0, 0, LOWORD(lParam), HIWORD(lParam), TRUE);
+        SendMessage(hWndEdit, EM_SCROLLCARET, 0, 0);
         return 0;
     case WM_COMMAND:
         /** If it is from the text-box, parse the text-box message:                   */
@@ -222,18 +223,42 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
 /** Edit-Box Message-Handler: *********************************************************/
 
 LRESULT CALLBACK EditBoxProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    DWORD      dwIndex;
+    /** Variables:                                                                    */
+    DWORD        dwIndex;
+    static bool  bScanActive;
     /** Do the message-processing:                                                    */
     switch ( message){
+    case WM_CREATE:
+        bScanActive = false;
+        break;
     case WM_KEYDOWN:
+        /** Check, if it was a tab for scanning:                                      */
+        if (wParam == VK_TAB) {
+            /** It is, so check if there has been scanning before:                    */
+            if (!bScanActive) {
+                bScanActive = true;
+                vDoTabScan((GetKeyState(VK_SHIFT) < 0), true);
+            } else {
+                vDoTabScan((GetKeyState(VK_SHIFT) < 0), false);
+            }
+            return 0;
+        }
         /** Check, if it was a delete:                                                */
         if (wParam == VK_DELETE) {
             /** Check if it has to be ignored:                                        */
             SendMessage(hwnd, EM_GETSEL, (WPARAM)&dwIndex, NULL);
             if (dwIndex < (Command.m_dwEditLastLF + 3)) return 0;
+            /** It is not, thus make sure that scanning is inactive:                  */
         }
         break;
     case WM_CHAR:
+        /** If it is a tab, ignore it:                                                */
+        if (wParam == VK_TAB) {
+            return 0;
+        } else {
+            /** If It is not, scanning should not be active:                          */
+            bScanActive = false;
+        }
         /** Make sure, that CTRL+C is always passed on:                               */
         if ((GetKeyState(VK_CONTROL) & 0x8000) && (wParam == 3)) break;
         /** If it was a return, process it:                                           */
@@ -283,6 +308,78 @@ LRESULT CALLBACK EditBoxProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
     return CallWindowProc(lpfnEditBoxLowProc, hwnd, message, wParam, lParam);
 }
 
+/** Support-function to handle the scanning with tab: *********************************/
+
+void vDoTabScan(bool bDir, bool bReScan) {
+    /** Variables: */
+    static WCHAR szwBoxText [C_TEXTBUFSIZE];
+    static WCHAR szwScanText[C_TEXTBUFSIZE];
+    static DWORD dwScanLen;
+    static DWORD dwSafeLine;
+    DWORD        dwScanLine;
+    DWORD        dwScanPos;
+    WCHAR        buffer[C_TEXTBUFSIZE];
+    DWORD        dwIndex;
+    /** Check, if rescan has to be done:                                              */
+    if (bReScan) {
+        /** It has to, so fetch the text and prepare the scan:                        */
+        GetWindowText(hWndEdit, szwBoxText, sizeof(szwBoxText));
+        /** Create the scan-string:                                                   */
+        wcscpy(szwScanText, L"  ");
+        wcscat(szwScanText, &szwBoxText[Command.m_dwEditLastLF + 3]);
+        /** ... and init the numbers:                                                 */
+        dwScanLen = wcslen(szwScanText);
+        dwSafeLine = 1;
+    }
+    /** Scan according to parsing direction:                                          */
+    if (!bDir) {
+        /** Scan Backwards:                                                           */
+        dwScanLine = dwSafeLine;
+        dwScanPos  = Command.dwFindNthLastCR(szwBoxText, dwScanLine);
+        /** Scan as long as not at the start yet:                                     */
+        do {
+            if (dwScanPos > 0) dwScanLine++;
+            dwScanPos = Command.dwFindNthLastCR(szwBoxText, dwScanLine);
+        } while ((dwScanPos > 0) && 
+                 ((wcsncmp(&szwBoxText[dwScanPos + 1], szwScanText, dwScanLen) != 0) ||
+                  (wcsncmp(&szwBoxText[dwScanPos + 1], L"  =", 3) == 0) ||
+                  (wcsncmp(&szwBoxText[dwScanPos + 1], L"  *", 3) == 0)));
+    }else {
+        /** Scan Forwards:                                                            */
+        dwScanLine = dwSafeLine;
+        dwScanPos  = Command.dwFindNthLastCR(szwBoxText, dwScanLine);
+        /** Scan as long as not at the last CR yet:                                   */
+        do {
+            if (dwScanLine > 1) dwScanLine--;
+            dwScanPos = Command.dwFindNthLastCR(szwBoxText, dwScanLine);
+        } while ((dwScanLine > 1) &&
+                 ((wcsncmp(&szwBoxText[dwScanPos + 1], szwScanText, dwScanLen) != 0) ||
+                  (wcsncmp(&szwBoxText[dwScanPos + 1], L"  =", 3) == 0) ||
+                  (wcsncmp(&szwBoxText[dwScanPos + 1], L"  *", 3) == 0)));
+    }
+    /**                                                                               */
+    /** Check, if something was found:                                                */
+    if (wcsncmp(&szwBoxText[dwScanPos + 1], szwScanText, dwScanLen) == 0) {
+        /** Fetch the text from the found position onward:                            */
+        wcscpy(buffer, &szwBoxText[dwScanPos + 1]);
+        /** Terminate it at the CR:                                                   */
+        dwIndex = 0;
+        while (buffer[dwIndex] != L'\r') dwIndex++;
+        buffer[dwIndex] = 0;
+        /** Copy it INTO the box-text:                                                */
+        wcscpy(&szwBoxText[Command.m_dwEditLastLF + 3], &buffer[2]);
+        SetWindowText(hWndEdit, szwBoxText);
+        /** Set the selection after the last character:                               */
+        SendMessage(hWndEdit, EM_SETSEL, wcslen(szwBoxText), wcslen(szwBoxText));
+        /** Trigger a scroll:                                                         */
+        SendMessage(hWndEdit, EM_SCROLLCARET, 0, 0);
+        /** And store the newly found position for the next run:                      */
+        dwSafeLine = dwScanLine;
+    }
+}
+
+/** Support-function to build the info-text: ******************************************/
+
 void vCreateInfoText(WCHAR* pszwOutput) {
     wcscpy(pszwOutput, L"  * ");
     vAddVersionInfo(pszwOutput, L"InternalName");
@@ -293,6 +390,8 @@ void vCreateInfoText(WCHAR* pszwOutput) {
     wcscat(pszwOutput, L"\r\n");
     wcscat(pszwOutput, cszwHelpText);
 }
+
+/** Support-function to fetch info from the version-resource: *************************/
 
 void vAddVersionInfo(WCHAR* pszwOutput, const WCHAR* pszwEntry) {
     /** Variables:                                                                    */
@@ -311,16 +410,15 @@ void vAddVersionInfo(WCHAR* pszwOutput, const WCHAR* pszwEntry) {
                 retVal = VerQueryValue(versionInfo, fileEntry, &retbuf, (UINT *)&vLen);
                 if (retVal && vLen == 4) {
                     memcpy(&langD, retbuf, 4);
-#ifdef _MSC_VER
+                    #ifdef _MSC_VER
                     swprintf(fileEntry, L"\\StringFileInfo\\%02X%02X%02X%02X\\%s",
                         (langD & 0xff00) >> 8, langD & 0xff, (langD & 0xff000000) >> 24,
                         (langD & 0xff0000) >> 16, pszwEntry);
-#else
+                    #else
                     swprintf(fileEntry, L"\\StringFileInfo\\%02X%02X%02X%02X\\%S",
                         (langD & 0xff00) >> 8, langD & 0xff, (langD & 0xff000000) >> 24,
                         (langD & 0xff0000) >> 16, pszwEntry);
-#endif
-
+                    #endif
                 }
                 else {
                     swprintf(fileEntry, L"\\StringFileInfo\\%04X04B0\\%s",

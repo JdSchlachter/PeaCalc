@@ -27,19 +27,19 @@ public:
     DWORD           m_dwEditLastLF;
     CCommandHandler(CConfigHandler* Config);
     ~CCommandHandler();
-    void           vSetInfoText(WCHAR* pszwTextPtr);
-    void           vSetText(HWND hEditBox, const WCHAR* pszwNewText);
-    void           vProcEnter(HWND hMain, HWND hEditBox);
+    void            vSetInfoText(WCHAR* pszwTextPtr);
+    void            vSetText(HWND hEditBox, const WCHAR* pszwNewText);
+    void            vProcEnter(HWND hMain, HWND hEditBox);
+    std::wstring    vProcMath(std::wstring sInput);
+    DWORD           dwFindNthLastCR(const WCHAR* pszwInput, int iCount);
 private:
     CTerm           m_TermMain;
     CConfigHandler* m_pConfig;
     WCHAR*          m_pszwInfoText;
-    std::wstring    sRun(std::wstring sInput);
-    bool            isInteger(double dInput);
     std::wstring    sOutputHexInt(double dInput);
     std::wstring    sOutputInt(double dInput);
     std::wstring    sOutputFloat(double dInput);
-    DWORD           dwFindNthLastCR(const WCHAR* pszwInput, int iCount);
+    bool            isInteger(double dInput);
     void            vRollback(WCHAR* pszwInput, WCHAR* pszwNewStart);
 
 };
