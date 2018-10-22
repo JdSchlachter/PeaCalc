@@ -149,16 +149,21 @@ std::wstring CCommandHandler::vProcMath(std::wstring sInput) {
     /** Variables:                                                                    */
     std::wstring sOutput;
     bool         bOutputHex = false;
+    bool         bOutputBin = false;
     double       dOutput;
     INT32        s32Result;
     /** Save the input in the output-string:                                          */
     sOutput = L"  " + sInput + L"\r\n";
     /** Change the input to lower-case:                                               */
     std::transform(sInput.begin(), sInput.end(), sInput.begin(), ::tolower);
-    /** Check, if the output shall be as hex:                                         */
+    /** Check for output-formatting:                                                  */
     if (sInput.substr(0,4) == L"hex(") {
+        /** It shall be hexadecimal:                                                  */
         sInput = sInput.substr(3);
         bOutputHex = true;
+    }else if (sInput.substr(0, 4) == L"bin(") {
+        sInput = sInput.substr(3);
+        bOutputBin = true;
     }
     /** Try to parse it:                                                              */
     s32Result = m_TermMain.s32Parse(sInput);
@@ -171,11 +176,17 @@ std::wstring CCommandHandler::vProcMath(std::wstring sInput) {
     /** Build up the output:                                                          */
     if (bOutputHex) {
         /** Build as hex:                                                             */
-        /** Note, this does not support IEEE 754 yet!                                 */
-        if (!isInteger(dOutput)) return (sOutput + L"  * No support (yet) of float-output in IEEE754!\r\n> ");
-        /** Limt at 2^53, since the output comes double:                              */
-        if (dOutput > 9007199254740991) return (sOutput + L"  * Result too large to convert to hex!\r\n> ");
-        sOutput += L"  = " + sOutputHexInt(dOutput) + L"\r\n> ";
+        if ((!isInteger(dOutput)) || (dOutput >= C_MAXIMUM_INT)) {
+            sOutput += L"  = " + sOutputHexFloat(dOutput) + L"\r\n> ";
+        } else {
+            sOutput += L"  = " + sOutputHexInt(dOutput) + L"\r\n> ";
+        }
+        return sOutput;
+    }else if (bOutputBin) {
+        /** Build as binary:                                                        */
+        if (!isInteger(dOutput)) return (sOutput + L"  * Binary output only supported for integers!\r\n> ");
+        if (dOutput >= C_MAXIMUM_INT) return (sOutput + L"  * Result too large for binary output!\r\n> ");
+        sOutput += L"  = " + sOutputBin(dOutput) + L"\r\n> ";
         return sOutput;
     }else if (isInteger(dOutput)) {
         /** Build as usual integer:                                                   */
@@ -207,7 +218,43 @@ std::wstring CCommandHandler::sOutputHexInt(double dInput) {
     return std::wstring(szwNumBuf);
 }
 
-/** Formats an output as decimal int: *************************************************/
+/** Formats an output as hex-float: ***************************************************/
+
+std::wstring CCommandHandler::sOutputHexFloat(double dInput) {
+    tUnifNum num;
+    WCHAR    szwNumBuf[40];
+    num.f = (float) dInput;
+    swprintf(szwNumBuf, L"0x%02X%02X%02X%02X f", num.u[3], num.u[2], num.u[1], num.u[0]);
+    return std::wstring(szwNumBuf);
+}
+
+/** Formats an output as binary: ******************************************************/
+
+std::wstring CCommandHandler::sOutputBin(double dInput) {
+    /** Variables:                                                                    */
+    WCHAR   szwNumBuf[80];
+    INT64   s64Temp = (INT64)dInput;
+    uint8_t u8Pos = 4;
+    /** Find the right length:                                                        */
+    while (((INT64)1 << u8Pos) <= s64Temp) u8Pos += 4;
+    /** Build the according number of digits:                                         */
+    wcscpy(szwNumBuf, L"0b");
+    while (u8Pos>0) {
+        /** Put spaces before each 4th digit:                                         */
+        if (((u8Pos % 4) == 0) && (u8Pos>0)) wcscat(szwNumBuf, L" ");
+        /** Go one bit further:                                                       */
+        u8Pos--;
+        /** And add the digit:                                                        */
+        if (s64Temp & ((INT64)1 << u8Pos)) {
+            wcscat(szwNumBuf, L"1");
+        }else{
+            wcscat(szwNumBuf, L"0");
+        }
+    }
+    return std::wstring(szwNumBuf);
+}
+
+/** Formats an output as decimal integer: *********************************************/
 
 std::wstring CCommandHandler::sOutputInt(double dInput) {
     WCHAR szwNumBuf[40];
@@ -252,7 +299,6 @@ bool CCommandHandler::isInteger(double dInput) {
   fractpart = modf (dInput , &intpart);
   if (fractpart>0) return false;
   return true;
-
 }
 
 void CCommandHandler::vRollback(WCHAR* pszwInput, WCHAR* pszwNewStart) {

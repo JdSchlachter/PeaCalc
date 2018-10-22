@@ -20,6 +20,15 @@
 
 #pragma once
 
+#define C_MAXIMUM_INT 9007199254740992
+
+/** Type Definitions: *****************************************************************/
+
+typedef union {
+    float   f;
+    uint8_t u[4];
+} tUnifNum;
+
 /** Class Definition: *****************************************************************/
 
 class CCommandHandler {
@@ -37,9 +46,10 @@ private:
     CConfigHandler* m_pConfig;
     WCHAR*          m_pszwInfoText;
     std::wstring    sOutputHexInt(double dInput);
+    std::wstring    sOutputHexFloat(double dInput);
+    std::wstring    sOutputBin(double dInput);
     std::wstring    sOutputInt(double dInput);
     std::wstring    sOutputFloat(double dInput);
     bool            isInteger(double dInput);
     void            vRollback(WCHAR* pszwInput, WCHAR* pszwNewStart);
-
 };
