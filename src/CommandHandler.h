@@ -20,8 +20,6 @@
 
 #pragma once
 
-#define C_MAXIMUM_INT 9007199254740992
-
 /** Type Definitions: *****************************************************************/
 
 typedef union {

@@ -167,16 +167,17 @@ std::wstring CCommandHandler::vProcMath(std::wstring sInput) {
     }
     /** Try to parse it:                                                              */
     s32Result = m_TermMain.s32Parse(sInput);
-    if (s32Result == C_TERM_FuncOK   ) return (sOutput + L"  * Results in function!\r\n> ");
-    if (s32Result != C_TERM_NumOK    ) return (sOutput + L"  * Parsing Error!\r\n> ");
+    if (s32Result == C_TERM_FuncOK      ) return (sOutput + L"  * Results in function!\r\n> ");
+    if (s32Result != C_TERM_NumOK       ) return (sOutput + L"  * Parsing Error!\r\n> ");
     /** If we got here, the term can be calculated:                                   */
     s32Result = m_TermMain.s32Execute(0, &dOutput);
-    if (s32Result == C_TERM_DivByZero) return (sOutput + L"  * Division by zero!\r\n> ");
+    if (s32Result == C_TERM_DivByZero   ) return (sOutput + L"  * Division by zero!\r\n> ");
+    if (s32Result == C_TERM_BoolTooLarge) return (sOutput + L"  * Boolean operator too large!\r\n> ");
     /**                                                                               */
     /** Build up the output:                                                          */
     if (bOutputHex) {
         /** Build as hex:                                                             */
-        if ((!isInteger(dOutput)) || (dOutput >= C_MAXIMUM_INT)) {
+        if ((!isInteger(dOutput)) || (dOutput >= C_TERM_MAXINT)) {
             sOutput += L"  = " + sOutputHexFloat(dOutput) + L"\r\n> ";
         } else {
             sOutput += L"  = " + sOutputHexInt(dOutput) + L"\r\n> ";
@@ -185,7 +186,7 @@ std::wstring CCommandHandler::vProcMath(std::wstring sInput) {
     }else if (bOutputBin) {
         /** Build as binary:                                                        */
         if (!isInteger(dOutput)) return (sOutput + L"  * Binary output only supported for integers!\r\n> ");
-        if (dOutput >= C_MAXIMUM_INT) return (sOutput + L"  * Result too large for binary output!\r\n> ");
+        if (dOutput >= C_TERM_MAXINT) return (sOutput + L"  * Result too large for binary output!\r\n> ");
         sOutput += L"  = " + sOutputBin(dOutput) + L"\r\n> ";
         return sOutput;
     }else if (isInteger(dOutput)) {
@@ -236,7 +237,7 @@ std::wstring CCommandHandler::sOutputBin(double dInput) {
     INT64   s64Temp = (INT64)dInput;
     uint8_t u8Pos = 4;
     /** Find the right length:                                                        */
-    while (((INT64)1 << u8Pos) <= s64Temp) u8Pos += 4;
+    while (((INT64)1 << u8Pos) <= abs(s64Temp)) u8Pos += 4;
     /** Build the according number of digits:                                         */
     wcscpy(szwNumBuf, L"0b");
     while (u8Pos>0) {

@@ -27,6 +27,7 @@
 #define C_TERM_ErroneousNumeric  0x05
 #define C_TERM_ParsingError      0x06
 #define C_TERM_DivByZero         0x07
+#define C_TERM_BoolTooLarge      0x08
 
 #define C_TERM_CmdEmpty          0x0000
 #define C_TERM_CmdConstant       0x0001
@@ -37,13 +38,19 @@
 #define C_TERM_CmdDivision       0x0006
 #define C_TERM_CmdRoot           0x0007
 #define C_TERM_CmdPower          0x0008
-#define C_TERM_CmdLog            0x0009
-#define C_TERM_CmdArcSin         0x000A
-#define C_TERM_CmdArcCos         0x000B
-#define C_TERM_CmdArcTan         0x000C
-#define C_TERM_CmdSin            0x000D
-#define C_TERM_CmdCos            0x000E
-#define C_TERM_CmdTan            0x000F
+#define C_TERM_CmdOr             0x0009
+#define C_TERM_CmdAnd            0x000A
+#define C_TERM_CmdNeg            0x000B
+#define C_TERM_CmdLog            0x000C
+#define C_TERM_CmdArcSin         0x000D
+#define C_TERM_CmdArcCos         0x000E
+#define C_TERM_CmdArcTan         0x000F
+#define C_TERM_CmdSin            0x0010
+#define C_TERM_CmdCos            0x0011
+#define C_TERM_CmdTan            0x0012
+
+#define C_TERM_MAXINT     0x10000000000000
+
 
 /** Class Definition: *****************************************************************/
 

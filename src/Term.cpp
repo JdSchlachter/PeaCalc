@@ -57,20 +57,47 @@ INT32 CTerm::s32Parse(std::wstring sInput) {
 INT32  CTerm::s32Execute(const double dInput, double* pdOutput) {
     INT32 iRes;
     double dPar1, dPar2;
+    INT64  iPar1, iPar2, iOut;
+    /** Check, if this is a parameter (thus x):                                       */
     if (m_u32Operator == C_TERM_CmdParameter) {
         *pdOutput = dInput;
         return C_TERM_NumOK;
     }
+    /** Check, if this is a constant:                                                 */
     if (m_u32Operator == C_TERM_CmdConstant) {
         *pdOutput = m_dVar;
         return C_TERM_NumOK;
     }
-    /** It is more than an operand, thus fetch the values: */
+    /** It is more than an operand, thus fetch the values:                            */
     iRes = m_pSubT1->s32Execute(dInput, &dPar1);
     if (iRes != C_TERM_NumOK) return iRes;
     iRes = m_pSubT2->s32Execute(dInput, &dPar2);
     if (iRes != C_TERM_NumOK) return iRes;
-    /** And do the calculus: */
+    /** Check, if it is a boolean operation:                                          */
+    if ((m_u32Operator == C_TERM_CmdOr) ||
+        (m_u32Operator == C_TERM_CmdAnd) ||
+        (m_u32Operator == C_TERM_CmdNeg)) {
+        /** It is, so check the ranges:                                               */
+        if (abs(dPar1) >= C_TERM_MAXINT) return C_TERM_BoolTooLarge;
+        if (abs(dPar2) >= C_TERM_MAXINT) return C_TERM_BoolTooLarge;
+        /** Convert to integers by chopping to 53 bits:                               */
+        iPar1 = ((INT64)dPar1) & (C_TERM_MAXINT - 1);
+        iPar2 = ((INT64)dPar2) & (C_TERM_MAXINT - 1);
+        /** Do the calculus:                                                          */
+        switch (m_u32Operator) {
+        case C_TERM_CmdOr:
+            *pdOutput = (double)(iPar1 | iPar2);
+            return C_TERM_NumOK;
+        case C_TERM_CmdAnd:
+            *pdOutput = (double)(iPar1 & iPar2);
+            return C_TERM_NumOK;
+        case C_TERM_CmdNeg:
+            *pdOutput = (double)((~iPar2) & (C_TERM_MAXINT - 1));
+            return C_TERM_NumOK;
+        }
+    }
+    /**                                                                               */
+    /** If it is not boolean, it is conventional:                                     */
     switch (m_u32Operator) {
     case C_TERM_CmdAddition:
         *pdOutput = dPar1 + dPar2;
@@ -253,6 +280,21 @@ INT32  CTerm::s32ParseOperator(const std::wstring sInput, UINT32* pu32OpType) {
     int iOpo;
     *pu32OpType = C_TERM_CmdEmpty;
     /** Try one by one the possible operators: */
+    iOpo = s32OperatorRevFind(sInput, L"|");
+    if (iOpo != -1) {
+        *pu32OpType = C_TERM_CmdOr;
+        return iOpo;
+    }
+    iOpo = s32OperatorRevFind(sInput, L"&");
+    if (iOpo != -1) {
+        *pu32OpType = C_TERM_CmdAnd;
+        return iOpo;
+    }
+    iOpo = s32OperatorRevFind(sInput, L"~");
+    if (iOpo != -1) {
+        *pu32OpType = C_TERM_CmdNeg;
+        return iOpo;
+    }
     iOpo = s32OperatorFinder(sInput, L"+");
     if (iOpo != -1) {
         *pu32OpType = C_TERM_CmdAddition;
@@ -353,7 +395,8 @@ INT32  CTerm::s32Declare(std::wstring sInput) {
             m_pSubT1 = new CTerm();
             iRes1 = m_pSubT1->s32Parse(L"2");
         }
-        else if ((m_u32Operator == C_TERM_CmdArcSin) ||
+        else if ((m_u32Operator == C_TERM_CmdNeg) ||
+            (m_u32Operator == C_TERM_CmdArcSin) ||
             (m_u32Operator == C_TERM_CmdArcCos) ||
             (m_u32Operator == C_TERM_CmdArcTan) ||
             (m_u32Operator == C_TERM_CmdSin) ||
