@@ -250,6 +250,17 @@ LRESULT CALLBACK EditBoxProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPar
             if (dwIndex < (Command.m_dwEditLastLF + 3)) return 0;
             /** It is not, thus make sure that scanning is inactive:                  */
         }
+        /** Check, if it was a home-key:                                              */
+        if (wParam == VK_HOME) {
+            /** Check, if it comes from within the last line:                         */
+            SendMessage(hwnd, EM_GETSEL, (WPARAM)&dwIndex, NULL);
+            if (dwIndex > (Command.m_dwEditLastLF)) {
+                /** If so, set the selection the starting entry-position:             */
+                dwIndex = Command.m_dwEditLastLF + 3;
+                SendMessage(hwnd, EM_SETSEL, dwIndex, dwIndex);
+                return 0;
+            }
+        }
         break;
     case WM_CHAR:
         /** If it is a tab, ignore it:                                                */
@@ -333,35 +344,46 @@ void vDoTabScan(bool bDir, bool bReScan) {
     }
     /** Scan according to parsing direction:                                          */
     if (!bDir) {
+        /**                                                                           */
         /** Scan Backwards:                                                           */
         dwScanLine = dwSafeLine;
         dwScanPos  = Command.dwFindNthLastCR(szwBoxText, dwScanLine);
+        /** Move to the character after the CR:                                       */
+        if (dwScanPos > 0) dwScanPos++;
         /** Scan as long as not at the start yet:                                     */
         do {
-            if (dwScanPos > 0) dwScanLine++;
+            /** Search for the next CR up:                                            */
+            if (dwScanPos > 1) dwScanLine++;
             dwScanPos = Command.dwFindNthLastCR(szwBoxText, dwScanLine);
-        } while ((dwScanPos > 0) && 
-                 ((wcsncmp(&szwBoxText[dwScanPos + 1], szwScanText, dwScanLen) != 0) ||
-                  (wcsncmp(&szwBoxText[dwScanPos + 1], L"  =", 3) == 0) ||
-                  (wcsncmp(&szwBoxText[dwScanPos + 1], L"  *", 3) == 0)));
+            /** Move to the character after the CR:                                   */
+            if (dwScanPos > 0) dwScanPos++;
+            /** ... and check:                                                        */
+        } while ((dwScanPos > 0) &&
+                 ((wcsncmp(&szwBoxText[dwScanPos], szwScanText, dwScanLen) != 0) ||
+                  (wcsncmp(&szwBoxText[dwScanPos], L"  =", 3) == 0) ||
+                  (wcsncmp(&szwBoxText[dwScanPos], L"  *", 3) == 0)));
     }else {
+        /**                                                                           */
         /** Scan Forwards:                                                            */
         dwScanLine = dwSafeLine;
-        dwScanPos  = Command.dwFindNthLastCR(szwBoxText, dwScanLine);
         /** Scan as long as not at the last CR yet:                                   */
         do {
+            /** Search for the next CR down:                                          */
             if (dwScanLine > 1) dwScanLine--;
             dwScanPos = Command.dwFindNthLastCR(szwBoxText, dwScanLine);
+            /** Move to the character after the CR:                                   */
+            if (dwScanPos > 0) dwScanPos++;
+            /** ... and check:                                                        */
         } while ((dwScanLine > 1) &&
-                 ((wcsncmp(&szwBoxText[dwScanPos + 1], szwScanText, dwScanLen) != 0) ||
-                  (wcsncmp(&szwBoxText[dwScanPos + 1], L"  =", 3) == 0) ||
-                  (wcsncmp(&szwBoxText[dwScanPos + 1], L"  *", 3) == 0)));
+                 ((wcsncmp(&szwBoxText[dwScanPos], szwScanText, dwScanLen) != 0) ||
+                  (wcsncmp(&szwBoxText[dwScanPos], L"  =", 3) == 0) ||
+                  (wcsncmp(&szwBoxText[dwScanPos], L"  *", 3) == 0)));
     }
     /**                                                                               */
     /** Check, if something was found:                                                */
-    if (wcsncmp(&szwBoxText[dwScanPos + 1], szwScanText, dwScanLen) == 0) {
+    if (wcsncmp(&szwBoxText[dwScanPos], szwScanText, dwScanLen) == 0) {
         /** Fetch the text from the found position onward:                            */
-        wcscpy(buffer, &szwBoxText[dwScanPos + 1]);
+        wcscpy(buffer, &szwBoxText[dwScanPos]);
         /** Terminate it at the CR:                                                   */
         dwIndex = 0;
         while (buffer[dwIndex] != L'\r') dwIndex++;
